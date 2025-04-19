@@ -27,13 +27,17 @@ final class HTTPSessionTests: XCTestCase {
         let request = createTestRequest()
         let id = UUID()
         let startTime = Date()
+        let relatedIDs = [UUID(), UUID()]
+        let parentID = UUID()
         
         // Act
         let session = HTTPSession(
             id: id,
             request: request,
             state: .initialized,
-            startTime: startTime
+            startTime: startTime,
+            relatedSessionIDs: relatedIDs,
+            parentSessionID: parentID
         )
         
         // Assert
@@ -49,6 +53,35 @@ final class HTTPSessionTests: XCTestCase {
         XCTAssertNil(session.queuedTime)
         XCTAssertEqual(session.retryCount, 0)
         XCTAssertFalse(session.usedSSLDecryption)
+        XCTAssertEqual(session.relatedSessionIDs, relatedIDs)
+        XCTAssertEqual(session.parentSessionID, parentID)
+        XCTAssertTrue(session.hasParent)
+        XCTAssertTrue(session.hasChildren)
+    }
+    
+    func testLegacyMetadataInitialization() {
+        // Arrange
+        let legacyMetadata = ["key1": "value1", "key2": "value2"]
+        
+        // Act
+        let session = HTTPSession(
+            request: createTestRequest(),
+            legacyMetadata: legacyMetadata
+        )
+        
+        // Assert
+        XCTAssertEqual(session.metadata.count, 2)
+        if case let .string(value) = session.metadata["key1"] {
+            XCTAssertEqual(value, "value1")
+        } else {
+            XCTFail("Expected string metadata value")
+        }
+        
+        if case let .string(value) = session.metadata["key2"] {
+            XCTAssertEqual(value, "value2")
+        } else {
+            XCTFail("Expected string metadata value")
+        }
     }
     
     func testStateTransitions() {
@@ -105,32 +138,200 @@ final class HTTPSessionTests: XCTestCase {
         XCTAssertEqual(retriedSession.retryCount, 2)
     }
     
-    func testMetadataManagement() {
+    func testEnhancedMetadataManagement() {
         // Arrange
         let session = HTTPSession(request: createTestRequest())
+        let now = Date()
         
-        // Act - add single metadata
-        let withMetadata = session.addMetadata(key: "test_key", value: "test_value")
-        
-        // Assert
-        XCTAssertEqual(withMetadata.metadata["test_key"], "test_value")
-        
-        // Act - add multiple metadata
-        let additionalMetadata: [String: String] = ["key1": "value1", "key2": "value2"]
-        let withMoreMetadata = withMetadata.addMetadata(additionalMetadata)
+        // Act - add different types of metadata
+        let withStringMetadata = session.addMetadata(key: "string_key", value: "string_value")
+        let withIntMetadata = withStringMetadata.addMetadata(key: "int_key", value: 42)
+        let withDoubleMetadata = withIntMetadata.addMetadata(key: "double_key", value: 3.14)
+        let withBoolMetadata = withDoubleMetadata.addMetadata(key: "bool_key", value: true)
+        let withDateMetadata = withBoolMetadata.addMetadata(key: "date_key", value: now)
         
         // Assert
-        XCTAssertEqual(withMoreMetadata.metadata.count, 3)
-        XCTAssertEqual(withMoreMetadata.metadata["key1"], "value1")
-        XCTAssertEqual(withMoreMetadata.metadata["key2"], "value2")
+        XCTAssertEqual(withDateMetadata.metadata.count, 5)
+        
+        if case let .string(value) = withDateMetadata.metadata["string_key"] {
+            XCTAssertEqual(value, "string_value")
+        } else {
+            XCTFail("Expected string metadata value")
+        }
+        
+        if case let .int(value) = withDateMetadata.metadata["int_key"] {
+            XCTAssertEqual(value, 42)
+        } else {
+            XCTFail("Expected int metadata value")
+        }
+        
+        if case let .double(value) = withDateMetadata.metadata["double_key"] {
+            XCTAssertEqual(value, 3.14)
+        } else {
+            XCTFail("Expected double metadata value")
+        }
+        
+        if case let .bool(value) = withDateMetadata.metadata["bool_key"] {
+            XCTAssertTrue(value)
+        } else {
+            XCTFail("Expected bool metadata value")
+        }
+        
+        if case let .date(value) = withDateMetadata.metadata["date_key"] {
+            XCTAssertEqual(value, now)
+        } else {
+            XCTFail("Expected date metadata value")
+        }
+        
+        // Act - batch add metadata
+        let batchMetadata: [String: HTTPSession.MetadataValue] = [
+            "batch_key1": .string("batch_value1"),
+            "batch_key2": .int(100)
+        ]
+        let withBatchMetadata = withDateMetadata.addMetadata(batchMetadata)
+        
+        // Assert
+        XCTAssertEqual(withBatchMetadata.metadata.count, 7)
+        
+        if case let .string(value) = withBatchMetadata.metadata["batch_key1"] {
+            XCTAssertEqual(value, "batch_value1")
+        } else {
+            XCTFail("Expected string metadata value")
+        }
         
         // Act - remove metadata
-        let withRemovedMetadata = withMoreMetadata.removeMetadata(key: "key1")
+        let withRemovedMetadata = withBatchMetadata.removeMetadata(key: "batch_key1")
         
         // Assert
-        XCTAssertEqual(withRemovedMetadata.metadata.count, 2)
-        XCTAssertNil(withRemovedMetadata.metadata["key1"])
-        XCTAssertEqual(withRemovedMetadata.metadata["key2"], "value2")
+        XCTAssertEqual(withRemovedMetadata.metadata.count, 6)
+        XCTAssertNil(withRemovedMetadata.metadata["batch_key1"])
+    }
+    
+    func testMetadataStringValue() {
+        // Arrange
+        let now = Date()
+        let stringValue = HTTPSession.MetadataValue.string("test")
+        let intValue = HTTPSession.MetadataValue.int(42)
+        let doubleValue = HTTPSession.MetadataValue.double(3.14)
+        let boolValue = HTTPSession.MetadataValue.bool(true)
+        let dateValue = HTTPSession.MetadataValue.date(now)
+        
+        // Act & Assert
+        XCTAssertEqual(stringValue.stringValue, "test")
+        XCTAssertEqual(intValue.stringValue, "42")
+        XCTAssertEqual(doubleValue.stringValue, "3.14")
+        XCTAssertEqual(boolValue.stringValue, "true")
+        
+        let formatter = ISO8601DateFormatter()
+        XCTAssertEqual(dateValue.stringValue, formatter.string(from: now))
+    }
+    
+    func testRelatedSessionManagement() {
+        // Arrange
+        let session = HTTPSession(request: createTestRequest())
+        let relatedID1 = UUID()
+        let relatedID2 = UUID()
+        
+        // Act - add related sessions
+        let withOneRelated = session.addRelatedSession(sessionID: relatedID1)
+        let withTwoRelated = withOneRelated.addRelatedSession(sessionID: relatedID2)
+        
+        // Assert
+        XCTAssertEqual(withTwoRelated.relatedSessionIDs.count, 2)
+        XCTAssertTrue(withTwoRelated.relatedSessionIDs.contains(relatedID1))
+        XCTAssertTrue(withTwoRelated.relatedSessionIDs.contains(relatedID2))
+        XCTAssertTrue(withTwoRelated.hasChildren)
+        
+        // Act - add duplicate (should have no effect)
+        let withDuplicate = withTwoRelated.addRelatedSession(sessionID: relatedID1)
+        
+        // Assert
+        XCTAssertEqual(withDuplicate.relatedSessionIDs.count, 2)
+        
+        // Act - remove related session
+        let withOneRemoved = withDuplicate.removeRelatedSession(sessionID: relatedID1)
+        
+        // Assert
+        XCTAssertEqual(withOneRemoved.relatedSessionIDs.count, 1)
+        XCTAssertFalse(withOneRemoved.relatedSessionIDs.contains(relatedID1))
+        XCTAssertTrue(withOneRemoved.relatedSessionIDs.contains(relatedID2))
+    }
+    
+    func testCreateChildSession() {
+        // Arrange
+        let parentSession = HTTPSession(request: createTestRequest())
+        let childRequest = HTTPRequest(url: "https://api.example.com/child", method: .post)
+        
+        // Act
+        let childSession = parentSession.createChildSession(request: childRequest)
+        
+        // Assert
+        XCTAssertEqual(childSession.parentSessionID, parentSession.id)
+        XCTAssertEqual(childSession.request, childRequest)
+        XCTAssertTrue(childSession.hasParent)
+        XCTAssertFalse(childSession.hasChildren)
+    }
+    
+    func testMetadataValueCodable() {
+        // Arrange
+        let now = Date()
+        let originalMetadata: [String: HTTPSession.MetadataValue] = [
+            "string": .string("test"),
+            "int": .int(42),
+            "double": .double(3.14),
+            "bool": .bool(true),
+            "date": .date(now)
+        ]
+        
+        let session = HTTPSession(
+            request: createTestRequest(),
+            metadata: originalMetadata
+        )
+        
+        // Act - encode and decode
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(session)
+            
+            let decoder = JSONDecoder()
+            let decodedSession = try decoder.decode(HTTPSession.self, from: data)
+            
+            // Assert
+            XCTAssertEqual(decodedSession.metadata.count, 5)
+            
+            if case let .string(value) = decodedSession.metadata["string"] {
+                XCTAssertEqual(value, "test")
+            } else {
+                XCTFail("Expected string metadata value")
+            }
+            
+            if case let .int(value) = decodedSession.metadata["int"] {
+                XCTAssertEqual(value, 42)
+            } else {
+                XCTFail("Expected int metadata value")
+            }
+            
+            if case let .double(value) = decodedSession.metadata["double"] {
+                XCTAssertEqual(value, 3.14)
+            } else {
+                XCTFail("Expected double metadata value")
+            }
+            
+            if case let .bool(value) = decodedSession.metadata["bool"] {
+                XCTAssertTrue(value)
+            } else {
+                XCTFail("Expected bool metadata value")
+            }
+            
+            if case let .date(value) = decodedSession.metadata["date"] {
+                XCTAssertEqual(value, now)
+            } else {
+                XCTFail("Expected date metadata value")
+            }
+            
+        } catch {
+            XCTFail("Failed to encode/decode HTTPSession metadata: \(error)")
+        }
     }
     
     func testAccessorProperties() {
@@ -277,14 +478,25 @@ final class HTTPSessionTests: XCTestCase {
         // Arrange
         let request = createTestRequest()
         let response = createTestResponse(statusCode: 404)
+        let relatedID = UUID()
+        let parentID = UUID()
+        
         let session = HTTPSession(
             request: request,
             response: response,
             state: .completed,
             startTime: Date(),
             endTime: Date().addingTimeInterval(1.5),
-            metadata: ["category": "api", "priority": "high"],
-            retryCount: 2
+            metadata: [
+                "category": .string("api"),
+                "priority": .string("high"),
+                "retry_count": .int(3),
+                "success_rate": .double(0.75),
+                "is_cached": .bool(false)
+            ],
+            retryCount: 2,
+            relatedSessionIDs: [relatedID],
+            parentSessionID: parentID
         )
         
         // Act
@@ -298,13 +510,21 @@ final class HTTPSessionTests: XCTestCase {
         XCTAssertTrue(description.contains("Duration:"))
         XCTAssertTrue(description.contains("category: api"))
         XCTAssertTrue(description.contains("priority: high"))
+        XCTAssertTrue(description.contains("retry_count: 3"))
+        XCTAssertTrue(description.contains("success_rate: 0.75"))
+        XCTAssertTrue(description.contains("is_cached: false"))
         XCTAssertTrue(description.contains("Retries: 2"))
+        XCTAssertTrue(description.contains("Related Sessions: 1"))
+        XCTAssertTrue(description.contains("Parent: \(parentID)"))
     }
     
     func testCodable() {
         // Arrange
         let request = createTestRequest()
         let response = createTestResponse()
+        let relatedID = UUID()
+        let parentID = UUID()
+        
         let originalSession = HTTPSession(
             request: request,
             response: response,
@@ -313,8 +533,10 @@ final class HTTPSessionTests: XCTestCase {
             responseStartTime: Date(),
             endTime: Date(),
             requestDuration: 0.3,
-            metadata: ["test": "value"],
-            retryCount: 1
+            metadata: ["test": .string("value"), "count": .int(42)],
+            retryCount: 1,
+            relatedSessionIDs: [relatedID],
+            parentSessionID: parentID
         )
         
         // Act - Encode and decode
@@ -332,8 +554,22 @@ final class HTTPSessionTests: XCTestCase {
             XCTAssertEqual(decodedSession.response?.statusCode, originalSession.response?.statusCode)
             XCTAssertEqual(decodedSession.state, originalSession.state)
             XCTAssertEqual(decodedSession.requestDuration, originalSession.requestDuration)
-            XCTAssertEqual(decodedSession.metadata, originalSession.metadata)
             XCTAssertEqual(decodedSession.retryCount, originalSession.retryCount)
+            XCTAssertEqual(decodedSession.relatedSessionIDs, originalSession.relatedSessionIDs)
+            XCTAssertEqual(decodedSession.parentSessionID, originalSession.parentSessionID)
+            
+            if case let .string(value) = decodedSession.metadata["test"] {
+                XCTAssertEqual(value, "value")
+            } else {
+                XCTFail("Failed to decode string metadata")
+            }
+            
+            if case let .int(value) = decodedSession.metadata["count"] {
+                XCTAssertEqual(value, 42)
+            } else {
+                XCTFail("Failed to decode int metadata")
+            }
+            
         } catch {
             XCTFail("Failed to encode/decode HTTPSession: \(error)")
         }

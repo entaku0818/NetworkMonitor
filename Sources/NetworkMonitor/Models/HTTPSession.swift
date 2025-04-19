@@ -28,8 +28,95 @@ public struct HTTPSession: Codable, Identifiable {
         case cancelled
     }
     
+    /// カスタムメタデータ値の型
+    public enum MetadataValue: Codable, Equatable {
+        case string(String)
+        case int(Int)
+        case double(Double)
+        case bool(Bool)
+        case date(Date)
+        
+        // Codable実装
+        private enum CodingKeys: String, CodingKey {
+            case type, value
+        }
+        
+        private enum ValueType: String, Codable {
+            case string, int, double, bool, date
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let type = try container.decode(ValueType.self, forKey: .type)
+            
+            switch type {
+            case .string:
+                let value = try container.decode(String.self, forKey: .value)
+                self = .string(value)
+            case .int:
+                let value = try container.decode(Int.self, forKey: .value)
+                self = .int(value)
+            case .double:
+                let value = try container.decode(Double.self, forKey: .value)
+                self = .double(value)
+            case .bool:
+                let value = try container.decode(Bool.self, forKey: .value)
+                self = .bool(value)
+            case .date:
+                let value = try container.decode(Date.self, forKey: .value)
+                self = .date(value)
+            }
+        }
+        
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            switch self {
+            case .string(let value):
+                try container.encode(ValueType.string, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .int(let value):
+                try container.encode(ValueType.int, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .double(let value):
+                try container.encode(ValueType.double, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .bool(let value):
+                try container.encode(ValueType.bool, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .date(let value):
+                try container.encode(ValueType.date, forKey: .type)
+                try container.encode(value, forKey: .value)
+            }
+        }
+        
+        // 文字列化するメソッド
+        public var stringValue: String {
+            switch self {
+            case .string(let value): return value
+            case .int(let value): return String(value)
+            case .double(let value): return String(value)
+            case .bool(let value): return String(value)
+            case .date(let value): 
+                let formatter = ISO8601DateFormatter()
+                return formatter.string(from: value)
+            }
+        }
+    }
+    
     /// カスタムメタデータのための型エイリアス
-    public typealias Metadata = [String: String]
+    public typealias Metadata = [String: MetadataValue]
+    
+    /// 旧メタデータ（文字列のみ）から新メタデータ形式に変換
+    public static func convertLegacyMetadata(_ legacyMetadata: [String: String]) -> Metadata {
+        var newMetadata: Metadata = [:]
+        
+        for (key, value) in legacyMetadata {
+            newMetadata[key] = .string(value)
+        }
+        
+        return newMetadata
+    }
     
     /// セッションの一意のID
     public let id: UUID
@@ -80,6 +167,12 @@ public struct HTTPSession: Codable, Identifiable {
     /// このセッションがSSL解読を使用したかどうか
     public let usedSSLDecryption: Bool
     
+    /// 関連セッションのID
+    public private(set) var relatedSessionIDs: [UUID]
+    
+    /// 親セッションのID（ある場合）
+    public let parentSessionID: UUID?
+    
     /// 初期化
     /// - Parameters:
     ///   - id: セッションの一意のID（デフォルトは自動生成）
@@ -94,6 +187,8 @@ public struct HTTPSession: Codable, Identifiable {
     ///   - queuedTime: リクエストのキューイング時刻（オプション）
     ///   - retryCount: リトライ回数（デフォルトは0）
     ///   - usedSSLDecryption: SSL解読が使用されたかどうか（デフォルトはfalse）
+    ///   - relatedSessionIDs: 関連セッションのID配列
+    ///   - parentSessionID: 親セッションのID（ある場合）
     public init(
         id: UUID = UUID(),
         request: HTTPRequest,
@@ -106,7 +201,9 @@ public struct HTTPSession: Codable, Identifiable {
         metadata: Metadata = [:],
         queuedTime: Date? = nil,
         retryCount: Int = 0,
-        usedSSLDecryption: Bool = false
+        usedSSLDecryption: Bool = false,
+        relatedSessionIDs: [UUID] = [],
+        parentSessionID: UUID? = nil
     ) {
         self.id = id
         self.request = request
@@ -120,6 +217,52 @@ public struct HTTPSession: Codable, Identifiable {
         self.queuedTime = queuedTime
         self.retryCount = retryCount
         self.usedSSLDecryption = usedSSLDecryption
+        self.relatedSessionIDs = relatedSessionIDs
+        self.parentSessionID = parentSessionID
+    }
+    
+    /// 旧フォーマットのメタデータでの初期化（後方互換性のため）
+    /// - Parameters:
+    ///   - id: セッションの一意のID
+    ///   - request: HTTPリクエスト
+    ///   - response: HTTPレスポンス（あれば）
+    ///   - state: セッションの状態
+    ///   - startTime: セッションの開始時刻
+    ///   - responseStartTime: レスポンスの受信開始時刻
+    ///   - endTime: セッションの終了時刻
+    ///   - requestDuration: リクエスト送信にかかった時間
+    ///   - legacyMetadata: 文字列ベースの古いメタデータ形式
+    ///   - queuedTime: リクエストのキューイング時刻
+    ///   - retryCount: リトライ回数
+    ///   - usedSSLDecryption: SSL解読が使用されたかどうか
+    public init(
+        id: UUID = UUID(),
+        request: HTTPRequest,
+        response: HTTPResponse? = nil,
+        state: State = .initialized,
+        startTime: Date = Date(),
+        responseStartTime: Date? = nil,
+        endTime: Date? = nil,
+        requestDuration: TimeInterval? = nil,
+        legacyMetadata: [String: String] = [:],
+        queuedTime: Date? = nil,
+        retryCount: Int = 0,
+        usedSSLDecryption: Bool = false
+    ) {
+        self.id = id
+        self.request = request
+        self.response = response
+        self.state = state
+        self.startTime = startTime
+        self.responseStartTime = responseStartTime
+        self.endTime = endTime
+        self.requestDuration = requestDuration
+        self.metadata = HTTPSession.convertLegacyMetadata(legacyMetadata)
+        self.queuedTime = queuedTime
+        self.retryCount = retryCount
+        self.usedSSLDecryption = usedSSLDecryption
+        self.relatedSessionIDs = []
+        self.parentSessionID = nil
     }
     
     // MARK: - 状態管理用メソッド
@@ -207,14 +350,58 @@ public struct HTTPSession: Codable, Identifiable {
     
     // MARK: - メタデータ管理
     
-    /// メタデータを追加または更新
+    /// メタデータを追加または更新（文字列値）
     /// - Parameters:
     ///   - key: メタデータのキー
-    ///   - value: メタデータの値
+    ///   - value: メタデータの文字列値
     /// - Returns: 更新されたセッション
     public func addMetadata(key: String, value: String) -> HTTPSession {
         var updated = self
-        updated.metadata[key] = value
+        updated.metadata[key] = .string(value)
+        return updated
+    }
+    
+    /// メタデータを追加または更新（整数値）
+    /// - Parameters:
+    ///   - key: メタデータのキー
+    ///   - value: メタデータの整数値
+    /// - Returns: 更新されたセッション
+    public func addMetadata(key: String, value: Int) -> HTTPSession {
+        var updated = self
+        updated.metadata[key] = .int(value)
+        return updated
+    }
+    
+    /// メタデータを追加または更新（浮動小数点値）
+    /// - Parameters:
+    ///   - key: メタデータのキー
+    ///   - value: メタデータの浮動小数点値
+    /// - Returns: 更新されたセッション
+    public func addMetadata(key: String, value: Double) -> HTTPSession {
+        var updated = self
+        updated.metadata[key] = .double(value)
+        return updated
+    }
+    
+    /// メタデータを追加または更新（真偽値）
+    /// - Parameters:
+    ///   - key: メタデータのキー
+    ///   - value: メタデータの真偽値
+    /// - Returns: 更新されたセッション
+    public func addMetadata(key: String, value: Bool) -> HTTPSession {
+        var updated = self
+        updated.metadata[key] = .bool(value)
+        return updated
+    }
+    
+    /// メタデータを追加または更新（日付値）
+    /// - Parameters:
+    ///   - key: メタデータのキー
+    ///   - value: メタデータの日付値
+    /// - Returns: 更新されたセッション
+    public func addMetadata(key: String, value: Date) -> HTTPSession {
+        var updated = self
+        updated.metadata[key] = .date(value)
         return updated
     }
     
@@ -234,6 +421,38 @@ public struct HTTPSession: Codable, Identifiable {
         var updated = self
         updated.metadata.removeValue(forKey: key)
         return updated
+    }
+    
+    // MARK: - 関連セッション管理
+    
+    /// 関連セッションを追加
+    /// - Parameter sessionID: 関連付けるセッションのID
+    /// - Returns: 更新されたセッション
+    public func addRelatedSession(sessionID: UUID) -> HTTPSession {
+        var updated = self
+        if !updated.relatedSessionIDs.contains(sessionID) {
+            updated.relatedSessionIDs.append(sessionID)
+        }
+        return updated
+    }
+    
+    /// 関連セッションを削除
+    /// - Parameter sessionID: 関連付けを解除するセッションのID
+    /// - Returns: 更新されたセッション
+    public func removeRelatedSession(sessionID: UUID) -> HTTPSession {
+        var updated = self
+        updated.relatedSessionIDs.removeAll { $0 == sessionID }
+        return updated
+    }
+    
+    /// 子セッションを作成
+    /// - Parameter request: 新しいリクエスト
+    /// - Returns: 親セッションIDとして現在のセッションIDを持つ新しいセッション
+    public func createChildSession(request: HTTPRequest) -> HTTPSession {
+        return HTTPSession(
+            request: request,
+            parentSessionID: self.id
+        )
     }
     
     // MARK: - 便利なアクセサメソッド
@@ -287,6 +506,16 @@ public struct HTTPSession: Codable, Identifiable {
     public var isOngoing: Bool {
         return !isFinished
     }
+    
+    /// 子セッションがあるかどうか
+    public var hasChildren: Bool {
+        return !relatedSessionIDs.isEmpty
+    }
+    
+    /// 親セッションがあるかどうか
+    public var hasParent: Bool {
+        return parentSessionID != nil
+    }
 }
 
 // MARK: - Equatable
@@ -325,12 +554,20 @@ extension HTTPSession: CustomStringConvertible {
         if !metadata.isEmpty {
             desc += "Metadata:\n"
             for (key, value) in metadata {
-                desc += "  \(key): \(value)\n"
+                desc += "  \(key): \(value.stringValue)\n"
             }
         }
         
         if retryCount > 0 {
             desc += "Retries: \(retryCount)\n"
+        }
+        
+        if !relatedSessionIDs.isEmpty {
+            desc += "Related Sessions: \(relatedSessionIDs.count)\n"
+        }
+        
+        if let parentID = parentSessionID {
+            desc += "Parent: \(parentID)\n"
         }
         
         return desc
