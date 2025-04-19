@@ -62,7 +62,7 @@ NetworkMonitor
 ### コーディング規約
 
 1. **Swift Style Guide**
-   - [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/)に従う
+   - [Swift API Design Guidelines](mdc:https:/swift.org/documentation/api-design-guidelines)に従う
    - インデントはスペース4つを使用
    - 型名はUpperCamelCase、変数・関数名はlowerCamelCase
    - 関数やプロパティには適切なアクセス修飾子を付ける（public, internal, private）
@@ -113,7 +113,7 @@ NetworkMonitor
 ### リリース管理
 
 1. **バージョニング**
-   - [セマンティックバージョニング](https://semver.org/lang/ja/)に従う
+   - [セマンティックバージョニング](mdc:https:/semver.org/lang/ja)に従う
    - vX.Y.Z形式（X: メジャー、Y: マイナー、Z: パッチ）
 
 2. **タグ付け**
