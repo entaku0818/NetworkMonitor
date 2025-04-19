@@ -148,3 +148,16 @@ NetworkMonitor
 - リポジトリ: https://github.com/entaku0818/NetworkMonitor
 - イシューボード: https://github.com/entaku0818/NetworkMonitor/issues
 - マイルストーン: https://github.com/entaku0818/NetworkMonitor/milestones 
+
+
+## テスト方法
+
+### コマンドラインからテストを実行
+
+以下のコマンドを実行してテストを行います：
+
+```bash
+swift test
+```
+
+このコマンドは、プロジェクトのルートディレクトリで実行してください。すべてのテストが自動的に実行されます。
