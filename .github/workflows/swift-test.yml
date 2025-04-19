@@ -1,0 +1,40 @@
+name: Swift Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.swift'
+      - 'Package.swift'
+      - '.github/workflows/swift-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.swift'
+      - 'Package.swift'
+
+jobs:
+  test:
+    name: Swift Tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        swift: ["5.3", "5.4", "5.5", "5.6"]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Swift
+      uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: ${{ matrix.swift }}
+    
+    - name: Get Swift version
+      run: swift --version
+      
+    - name: Build
+      run: swift build
+      
+    - name: Run tests
+      run: swift test
