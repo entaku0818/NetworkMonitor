@@ -1,3 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
 # NetworkMonitor 開発ルール
 
 ## プロジェクト概要
