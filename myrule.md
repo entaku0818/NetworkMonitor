@@ -1,0 +1,125 @@
+# NetworkMonitor 開発ルール
+
+## プロジェクト概要
+
+NetworkMonitorは、Swift Package Managerを使用してiOS、macOS、watchOS、tvOSアプリケーションでネットワーク通信を監視、分析、フィルタリングするためのライブラリです。Charlesのように使いやすく、かつ強力な機能を提供します。
+
+## アーキテクチャ設計
+
+```
+NetworkMonitor
+├── Core
+│   ├── Monitor - メインのモニタリングエンジン
+│   ├── Interceptor - ネットワークリクエスト/レスポンスの傍受
+│   ├── Storage - キャプチャデータの保存
+│   └── Certificate - SSL証明書の管理
+├── Models
+│   ├── Request - HTTPリクエストモデル
+│   ├── Response - HTTPレスポンスモデル
+│   └── Session - ネットワークセッションモデル
+├── Filters
+│   ├── FilterEngine - フィルタリングロジック
+│   ├── FilterCriteria - フィルター条件の定義
+│   └── Predefined Filters - よく使われるフィルターのプリセット
+└── UI (オプショナル)
+    ├── SessionListView - セッションリスト表示
+    ├── RequestDetailView - リクエスト詳細表示
+    └── FilterConfigurationView - フィルター設定UI
+```
+
+## 開発計画
+
+### マイルストーン
+
+1. **基盤構築（v0.1.0）**
+   - 期間: 4週間
+   - 目標: 基本的なネットワークモニタリング機能の実装
+
+2. **高度な機能実装（v0.2.0）**
+   - 期間: 6週間
+   - 目標: SSL解読やフィルタリング機能の実装
+
+3. **UI実装とユーザビリティ向上（v1.0.0）**
+   - 期間: 4週間
+   - 目標: ユーザーインターフェース実装と機能の安定化
+
+### イシュー構成
+
+各イシューは約3時間で完了できる単位に分割されており、GitHub Issuesに登録されています。
+各イシューには次の要素が含まれます：
+- 明確な目標と実装内容
+- マイルストーンへの紐付け
+- 適切なラベル（enhancement, documentation, test）
+
+## 開発ルール
+
+### コーディング規約
+
+1. **Swift Style Guide**
+   - [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/)に従う
+   - インデントはスペース4つを使用
+   - 型名はUpperCamelCase、変数・関数名はlowerCamelCase
+   - 関数やプロパティには適切なアクセス修飾子を付ける（public, internal, private）
+
+2. **ドキュメンテーション**
+   - 公開API、クラス、メソッドには必ずドキュメントコメントを記述
+   - ```/// ```形式のドキュメントコメントを使用（DocC形式）
+   - パラメータと戻り値の説明を含める
+
+3. **テスト**
+   - 公開APIには必ずユニットテストを作成
+   - テストカバレッジ70%以上を目標とする
+   - XCTestを使用
+
+### ブランチ戦略
+
+1. **ブランチ命名規則**
+   - 機能追加: `feature/issue-{番号}-{簡単な説明}`
+   - バグ修正: `fix/issue-{番号}-{簡単な説明}`
+   - リファクタリング: `refactor/issue-{番号}-{簡単な説明}`
+   - ドキュメント: `docs/issue-{番号}-{簡単な説明}`
+
+2. **プルリクエスト**
+   - 各イシューに対して1つのプルリクエストを作成
+   - タイトルは「Issue #XX: 〜」の形式
+   - プルリクエストの説明には変更内容の概要を記載
+   - コードレビューを受けてからマージ
+
+### リリース管理
+
+1. **バージョニング**
+   - [セマンティックバージョニング](https://semver.org/lang/ja/)に従う
+   - vX.Y.Z形式（X: メジャー、Y: マイナー、Z: パッチ）
+
+2. **タグ付け**
+   - リリース時にはGitタグを付ける
+   - タグ名はバージョン番号（例: `v0.1.0`）
+
+## 技術選定
+
+1. **依存ライブラリの最小化**
+   - 可能な限り標準ライブラリのみを使用
+   - 必要最小限の外部依存に留める
+
+2. **対応環境**
+   - iOS 14.0+
+   - macOS 11.0+
+   - watchOS 7.0+
+   - tvOS 14.0+
+   - Swift 5.3+
+
+## 連絡とコミュニケーション
+
+1. **イシュートラッキング**
+   - すべての作業はGitHub Issues上で管理
+   - 進捗状況は定期的に更新
+
+2. **ディスカッション**
+   - 技術的な議論はイシューコメントで行う
+   - 大きな設計変更はイシューを立てて議論
+
+## プロジェクトリソース
+
+- リポジトリ: https://github.com/entaku0818/NetworkMonitor
+- イシューボード: https://github.com/entaku0818/NetworkMonitor/issues
+- マイルストーン: https://github.com/entaku0818/NetworkMonitor/milestones 
