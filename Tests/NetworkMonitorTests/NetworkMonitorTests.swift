@@ -1,33 +1,30 @@
-import Testing
+import XCTest
 @testable import NetworkMonitor
 
-struct NetworkMonitorTests {
-    @Test
-    func initializationCreatesSharedInstance() {
+final class NetworkMonitorTests: XCTestCase {
+    func testInitializationCreatesSharedInstance() {
         // Test that the shared instance exists
-        #expect(NetworkMonitor.shared != nil)
+        XCTAssertNotNil(NetworkMonitor.shared)
     }
     
-    @Test
-    func monitorStartsAndStopsCorrectly() {
+    func testMonitorStartsAndStopsCorrectly() {
         // Test that the monitor starts and stops correctly
         let monitor = NetworkMonitor.shared
         
         // Test initial state
-        #expect(!monitor.isActive())
+        XCTAssertFalse(monitor.isActive())
         
         // Test after starting
         monitor.start()
-        #expect(monitor.isActive())
+        XCTAssertTrue(monitor.isActive())
         
         // Test after stopping
         monitor.stop()
-        #expect(!monitor.isActive())
+        XCTAssertFalse(monitor.isActive())
     }
     
-    @Test
-    func versionIsCorrect() {
+    func testVersionIsCorrect() {
         // Test that the version string is correct
-        #expect(NetworkMonitor.version == "0.1.0")
+        XCTAssertEqual(NetworkMonitor.version, "0.1.0")
     }
 } 
