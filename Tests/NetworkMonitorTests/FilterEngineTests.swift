@@ -38,8 +38,8 @@ final class FilterEngineTests: XCTestCase {
         let otherHostSession = HTTPSession(request: otherHostRequest, response: otherHostResponse, state: .completed)
         sessions.append(otherHostSession)
         
-        // 進行中のセッション
-        let ongoingRequest = HTTPRequest(url: "https://api.example.com/upload", method: .post)
+        // 進行中のセッション（別ホスト）
+        let ongoingRequest = HTTPRequest(url: "https://files.another.com/upload", method: .post)
         let ongoingSession = HTTPSession(request: ongoingRequest, state: .sending)
         sessions.append(ongoingSession)
         
@@ -214,7 +214,7 @@ final class FilterEngineTests: XCTestCase {
     
     func testConvenienceFilterSlowRequests() throws {
         let filtered = filterEngine.filterSlowRequests(sessions: sampleSessions, threshold: 1.0)
-        XCTAssertEqual(filtered.count, 2) // 1.2秒と2.0秒のリクエスト
+        XCTAssertEqual(filtered.count, 2) // 1.2秒と2.0秒のレスポンス
     }
     
     // MARK: - Summary Statistics Tests

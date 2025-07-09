@@ -302,7 +302,8 @@ public class FilterCriteria: FilterCriteriaProtocol {
             return session.response?.body != nil && !session.response!.body!.isEmpty
             
         case .duration(let min, let max):
-            let duration = session.duration
+            // レスポンスの処理時間を使用（レスポンスがある場合）
+            let duration = session.response?.duration ?? session.duration
             if let min = min, duration < min { return false }
             if let max = max, duration > max { return false }
             return true

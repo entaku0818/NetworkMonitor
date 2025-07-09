@@ -23,10 +23,13 @@ final class FilterCriteriaTests: XCTestCase {
             duration: 1.5
         )
         
+        // 明示的に期間を設定してセッションを完了状態にする
+        let endTime = Date(timeInterval: 1.5, since: Date())
         sampleSession = HTTPSession(
             request: sampleRequest,
             response: sampleResponse,
-            state: .completed
+            state: .completed,
+            endTime: endTime
         )
     }
     
