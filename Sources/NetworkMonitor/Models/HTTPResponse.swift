@@ -188,6 +188,20 @@ public struct HTTPResponse: Codable {
         )
     }
     
+    /// HTTPURLResponseからHTTPResponseを作成する便利メソッド
+    /// - Parameters:
+    ///   - httpResponse: HTTPURLResponse
+    ///   - data: レスポンスデータ
+    ///   - duration: 処理時間
+    /// - Returns: HTTPResponse
+    public static func from(_ httpResponse: HTTPURLResponse, data: Data?, duration: TimeInterval) -> HTTPResponse {
+        return HTTPResponse.from(
+            urlResponse: httpResponse,
+            data: data,
+            duration: duration
+        )
+    }
+    
     /// レスポンスボディを文字列として取得
     /// - Parameter encoding: 使用するエンコーディング（指定がなければヘッダーから取得、それもなければUTF-8）
     /// - Returns: ボディの文字列表現、変換できない場合はnil

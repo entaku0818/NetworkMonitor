@@ -88,6 +88,23 @@ public struct HTTPRequest: Codable {
         )
     }
     
+    /// URLRequestからHTTPRequestを作成（常に成功する版）
+    /// - Parameter urlRequest: 変換元のURLRequest
+    /// - Returns: 変換されたHTTPRequest
+    public static func from(_ urlRequest: URLRequest) -> HTTPRequest {
+        let url = urlRequest.url?.absoluteString ?? ""
+        let method = Method(rawValue: urlRequest.httpMethod ?? "GET") ?? .get
+        let headers = urlRequest.allHTTPHeaderFields ?? [:]
+        let body = urlRequest.httpBody
+        
+        return HTTPRequest(
+            url: url,
+            method: method,
+            headers: headers,
+            body: body
+        )
+    }
+    
     /// HTTPRequestをURLRequestに変換
     /// - Returns: 対応するURLRequest
     public func toURLRequest() -> URLRequest? {
