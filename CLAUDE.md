@@ -24,6 +24,7 @@ This is a Swift Package Manager library for monitoring, analyzing, and filtering
   - **Models/**: Data models for HTTP requests, responses, and sessions
   - **Core/**: Core monitoring engine components
     - **Storage/**: Session storage implementations (file-based and in-memory)
+    - **Search/**: Session search service with full-text and regex search capabilities
   - **Filters/**: Advanced filtering engine with complex criteria and regex support
   - **UI/**: SwiftUI components for displaying network data (planned)
 
@@ -57,7 +58,7 @@ This is a Swift Package Manager library for monitoring, analyzing, and filtering
 
 ### Testing Structure
 Tests are located in `Tests/NetworkMonitorTests/` with comprehensive coverage:
-- `NetworkMonitorTests.swift`: Main monitor functionality tests
+- `NetworkMonitorTests.swift`: Main monitor functionality tests (3 tests)
 - `HTTPRequestTests.swift`: Request model tests (8 tests)
 - `HTTPResponseTests.swift`: Response model tests (11 tests)
 - `HTTPSessionTests.swift`: Session model tests (15 tests)
@@ -65,9 +66,10 @@ Tests are located in `Tests/NetworkMonitorTests/` with comprehensive coverage:
 - `FilterEngineTests.swift`: Filtering engine tests (20 tests)
 - `SessionStorageTests.swift`: File storage tests (13 tests)
 - `InMemorySessionStorageTests.swift`: In-memory storage tests (16 tests)
+- `SessionSearchServiceTests.swift`: Session search tests (23 tests)
 - `ReleaseBuildTests.swift`: Release build safety tests (10 tests)
 
-**Total: 119 tests with 100% pass rate**
+**Total: 142 tests with 100% pass rate**
 
 ## Code Style Guidelines
 
@@ -85,6 +87,7 @@ The project follows the style guide in `STYLE_GUIDE.md`:
 - **HTTP Models**: Complete request/response/session models with metadata support
 - **Advanced Filtering**: Complex conditions, regex patterns, logical operators (AND/OR)
 - **Session Storage**: Both file-based and in-memory storage implementations
+- **Session Search**: Full-text and regex search with relevance scoring and highlighting
 - **Release Safety**: Automatic monitoring disable in release builds with safety mechanisms
 - **Error Handling**: Comprehensive error types and localized descriptions
 
@@ -106,6 +109,17 @@ The project follows the style guide in `STYLE_GUIDE.md`:
 - **FilterEngine**: Advanced filtering with categorization and pagination
 - **Predefined Filters**: Common patterns like `successOnly()`, `errorsOnly()`, `slowRequests()`
 - **Regular Expression Support**: URL pattern matching
+
+### Search System
+#### SessionSearchService
+- Full-text search across all session fields (URL, headers, body, metadata)
+- Regular expression search with configurable options
+- Advanced relevance scoring algorithm
+- Search result highlighting with field-specific matches
+- Date range search with preset options
+- Multiple sort options (relevance, timestamp, duration, status code)
+- Field-specific search configurations
+- Performance optimization for large datasets
 
 ### Security Features
 - **Build Configuration Detection**: Automatic debug/release detection
