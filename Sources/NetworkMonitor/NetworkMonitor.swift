@@ -93,10 +93,14 @@ public final class NetworkMonitor {
     /// Notification manager for session events
     private var notificationManager: NotificationManager?
     
+    /// Delegate manager for handling multiple delegates
+    private var delegateManager: DelegateManager
+    
     /// Private initializer to enforce singleton pattern
     private init() {
         self.configuration = Configuration()
         self.sessionManager = SessionManager(storage: self.configuration.storage)
+        self.delegateManager = DelegateManager()
         // Check if monitoring should be disabled in release builds
         if BuildConfiguration.current == .release && !Self.allowReleaseMonitoring {
             state = .disabled(reason: "Monitoring is disabled in release builds for security reasons")
@@ -210,6 +214,30 @@ public final class NetworkMonitor {
         return configuration
     }
     
+    // MARK: - Delegate Management Methods
+    
+    /// Adds a delegate to receive NetworkMonitor events
+    /// - Parameter delegate: The delegate to add
+    public func addDelegate(_ delegate: NetworkMonitorDelegate) {
+        delegateManager.addDelegate(delegate)
+    }
+    
+    /// Removes a delegate from receiving NetworkMonitor events
+    /// - Parameter delegate: The delegate to remove
+    public func removeDelegate(_ delegate: NetworkMonitorDelegate) {
+        delegateManager.removeDelegate(delegate)
+    }
+    
+    /// Removes all delegates
+    public func removeAllDelegates() {
+        delegateManager.removeAllDelegates()
+    }
+    
+    /// Returns the number of active delegates
+    public func getDelegateCount() -> Int {
+        return delegateManager.delegateCount
+    }
+    
     // MARK: - Session Management Methods
     
     /// Starts a new session for tracking
@@ -222,8 +250,9 @@ public final class NetworkMonitor {
             self.activeSessions[session.id] = session
             self.sessionManager.addSession(session)
             
-            // Notify observers
+            // Notify observers and delegates
             self.notificationManager?.sessionStarted(session)
+            self.delegateManager.notifySessionStarted(self, session: session)
         }
         
         return session.id
@@ -256,8 +285,9 @@ public final class NetworkMonitor {
             // Clean up from active sessions
             self.activeSessions.removeValue(forKey: sessionId)
             
-            // Notify observers
+            // Notify observers and delegates
             self.notificationManager?.sessionCompleted(completedSession)
+            self.delegateManager.notifySessionCompleted(self, session: completedSession)
         }
     }
     
@@ -281,8 +311,9 @@ public final class NetworkMonitor {
             // Clean up from active sessions
             self.activeSessions.removeValue(forKey: sessionId)
             
-            // Notify observers
+            // Notify observers and delegates
             self.notificationManager?.sessionFailed(failedSession, error: error)
+            self.delegateManager.notifySessionFailed(self, session: failedSession, error: error)
         }
     }
     
