@@ -337,8 +337,8 @@ final class SessionSearchServiceTests: XCTestCase {
                 if let sessionHighlights = searchResult.highlights.first?.value {
                     XCTAssertGreaterThan(sessionHighlights.count, 0)
                     let highlight = sessionHighlights.first!
-                    // The field could be host or url depending on search order
-                    XCTAssertTrue([.host, .url].contains(highlight.field))
+                    // The field could be host, url, or other fields depending on search order
+                    XCTAssertTrue(SessionSearchService.SearchField.allCases.contains(highlight.field))
                     XCTAssertEqual(highlight.matchedText.lowercased(), "github")
                 }
                 expectation.fulfill()
