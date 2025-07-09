@@ -4,13 +4,20 @@ NetworkMonitorは、Swift Package Managerを使用してiOS、macOS、watchOS、
 
 ## 機能概要
 
+### 実装済み機能 ✅
+
+- **HTTPリクエスト/レスポンスモデル**: 完全なHTTPセッション管理とメタデータ対応
+- **高度なフィルタリングエンジン**: 複合条件、正規表現、事前定義フィルター対応
+- **セッション永続化**: JSON/Binary Plist形式でのファイル保存・読み込み
+- **非同期処理**: 完全な非同期API設計でパフォーマンス最適化
+- **包括的なテストカバレッジ**: 93テストケースで品質保証
+
+### 計画中機能 🚧
+
 - **ネットワークリクエスト/レスポンスの傍受**: HTTPおよびHTTPSリクエストとレスポンスをリアルタイムで傍受
-- **詳細な分析**: ヘッダー、ボディ、URLパラメータ、レスポンスタイム等の詳細情報の取得
-- **フィルタリング**: ホスト名、パス、HTTPメソッド、ステータスコード等による柔軟なフィルタリング
-- **トラフィックの保存と共有**: キャプチャしたトラフィックをファイルに保存し、共有可能
-- **カスタムプロキシ**: 必要に応じてリクエスト/レスポンスを変更可能なプロキシ機能
 - **SSL解読**: HTTPSトラフィックを解読するためのユーティリティ（開発環境用）
 - **UIコンポーネント**: キャプチャされたネットワークトラフィックを表示するためのビューコンポーネント
+- **カスタムプロキシ**: 必要に応じてリクエスト/レスポンスを変更可能なプロキシ機能
 
 ## アーキテクチャ設計
 
@@ -97,28 +104,99 @@ NetworkMonitor
 
 ## 使用例
 
+### 基本的な使用方法
+
 ```swift
+import NetworkMonitor
+
 // 基本的な使用例
 let monitor = NetworkMonitor.shared
 monitor.start()
 
 // フィルターの設定
 let filter = FilterCriteria()
-    .host(contains: "api.example.com")
+    .host(pattern: "api.example.com")
     .method(.POST)
-    .statusCode(range: 400..<500)
-monitor.setFilter(filter)
+    .statusCodeRange(400..<500)
 
-// モニタリング結果の取得
-monitor.sessions { sessions in
-    for session in sessions {
-        print("Request: \(session.request.url)")
-        print("Status: \(session.response.statusCode)")
-    }
+let filterEngine = FilterEngine()
+let sessions = filterEngine.filter(sessions: allSessions, using: filter)
+
+// 結果の表示
+for session in sessions {
+    print("Request: \(session.request.url)")
+    print("Status: \(session.response?.statusCode ?? 0)")
 }
 
 // 終了
 monitor.stop()
+```
+
+### フィルタリングの例
+
+```swift
+// 成功レスポンスのみを取得
+let successFilter = FilterCriteria.successOnly()
+let successSessions = filterEngine.filter(sessions: allSessions, using: successFilter)
+
+// 複合条件でのフィルタリング
+let complexFilter = FilterCriteria()
+    .host(pattern: "api.example.com")
+    .method(.GET, logicalOperator: .and)
+    .duration(min: 1.0, logicalOperator: .and)
+
+// 正規表現を使用したフィルタリング
+let regexFilter = FilterCriteria()
+    .url(pattern: ".*\\.json$", isRegex: true)
+
+// 事前定義フィルターの使用
+let slowRequests = filterEngine.filterSlowRequests(sessions: allSessions, threshold: 2.0)
+let errorRequests = filterEngine.filterErrorsOnly(sessions: allSessions)
+```
+
+### セッションストレージの例
+
+```swift
+// ファイルベースのストレージ設定
+let storageConfig = FileSessionStorage.StorageConfiguration(
+    fileFormat: .json,
+    maxSessions: 1000,
+    autoCleanup: true,
+    retentionPeriod: 30 * 24 * 60 * 60 // 30日
+)
+
+let storage = FileSessionStorage(configuration: storageConfig)
+
+// セッションの保存
+storage.save(session: session) { result in
+    switch result {
+    case .success():
+        print("Session saved successfully")
+    case .failure(let error):
+        print("Save failed: \(error)")
+    }
+}
+
+// セッションの読み込み
+storage.loadAll { result in
+    switch result {
+    case .success(let sessions):
+        print("Loaded \(sessions.count) sessions")
+    case .failure(let error):
+        print("Load failed: \(error)")
+    }
+}
+
+// フィルタリングしながら読み込み
+let criteria = FilterCriteria().statusCategory(.success)
+storage.load(matching: criteria) { result in
+    switch result {
+    case .success(let filteredSessions):
+        print("Found \(filteredSessions.count) successful sessions")
+    case .failure(let error):
+        print("Filter load failed: \(error)")
+    }
+}
 ```
 
 ## HTTPSトラフィック解読のアプリへの組み込み
