@@ -341,6 +341,10 @@ public final class NetworkMonitor {
     
     /// Starts URLSession traffic interception
     private func startURLSessionInterception() {
+        // Use URLProtocol-based interception for automatic traffic capture
+        enableURLProtocolInterception()
+        
+        // Keep the manual interceptors for advanced use cases
         requestInterceptor = RequestInterceptor(monitor: self, configuration: configuration)
         responseInterceptor = ResponseInterceptor(monitor: self, configuration: configuration)
         
@@ -352,6 +356,10 @@ public final class NetworkMonitor {
     
     /// Stops URLSession traffic interception
     private func stopURLSessionInterception() {
+        // Disable URLProtocol-based interception
+        disableURLProtocolInterception()
+        
+        // Stop manual interceptors
         requestInterceptor?.stop()
         responseInterceptor?.stop()
         
@@ -362,7 +370,7 @@ public final class NetworkMonitor {
     }
     
     /// Logs security-related messages
-    private func logSecurityMessage(_ message: String) {
+    internal func logSecurityMessage(_ message: String) {
         #if DEBUG
         print("🔐 NetworkMonitor: \(message)")
         #endif
